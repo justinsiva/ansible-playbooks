@@ -1,0 +1,55 @@
+---
+- name: Firmware Upgrade Playbook for Linux Machine
+  hosts: all
+  become: yes
+  vars:
+    ansible_user: fpos
+    ansible_ssh_pass: "s"
+    ansible_become_pass: "s"
+    upgrade_file_pattern: "*r35_rw1*"
+    scp_source_ip: "10.2.5.122"
+    scp_source_path: "/var/log/updates"
+    download_path: "/home/fpos"
+    final_path: "/var/log/updates"
+
+  tasks:
+
+    - name: Ensure sshpass is installed (required for scp with password)
+      package:
+        name: sshpass
+        state: present
+
+    - name: Download firmware file using SCP
+      shell: |
+        sshpass -p 's' scp root@{{ scp_source_ip }}:{{ scp_source_path }}/{{ upgrade_file_pattern }} {{ download_path }}/
+      args:
+        executable: /bin/bash
+
+    - name: Wait for download to complete
+      pause:
+        minutes: 3
+
+    - name: Move downloaded firmware to final path
+      command: mv {{ download_path }}/{{ upgrade_file_pattern }} {{ final_path }}/
+
+    - name: Remove existing Fatpipe directory if any
+      file:
+        path: "{{ final_path }}/Fatpipe"
+        state: absent
+
+    - name: Extract the firmware archive
+      shell: tar -zxvf {{ upgrade_file_pattern }}
+      args:
+        chdir: "{{ final_path }}"
+
+    - name: Execute firmware update script
+      shell: ./update.sh --no-udev-check
+      args:
+        chdir: "{{ final_path }}/Fatpipe"
+
+    - name: Wait for update script to complete
+      pause:
+        minutes: 5
+
+    - name: Reboot the system
+      reboot:
