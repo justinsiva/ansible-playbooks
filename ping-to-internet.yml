@@ -1,0 +1,12 @@
+---
+- name: Test ping to 1.1.1.1
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ping to 1.1.1.1
+      ansible.builtin.shell: ping -c 3 1.1.1.1
+      register: ping_output
+
+    - name: Show ping result
+      debug:
+        var: ping_output.stdout_lines
